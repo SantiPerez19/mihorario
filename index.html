@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mi Horario</title>
+<style>
+  :root {
+    --bg: #f4f6fb;
+    --panel: #ffffff;
+    --border: #e2e8f0;
+    --text: #1e293b;
+    --muted: #64748b;
+    --accent: #4f46e5;
+    --accent-dark: #4338ca;
+    --danger: #ef4444;
+    --radius: 12px;
+    --shadow: 0 1px 3px rgba(15, 23, 42, .08), 0 1px 2px rgba(15, 23, 42, .06);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+  header h1 { font-size: 22px; font-weight: 700; letter-spacing: -.5px; }
+  header h1 span { color: var(--accent); }
+  .conn { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+  .conn .user-label { font-size: 13px; color: var(--muted); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .icon-btn {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    width: 34px; height: 34px; cursor: pointer; font-size: 16px; color: var(--text);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .icon-btn:hover { background: #e9edf5; }
+  .icon-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .sync-dot { width: 10px; height: 10px; border-radius: 50%; background: #94a3b8; display: inline-block; flex-shrink: 0; }
+  .sync-dot.online { background: #22c55e; }
+  .sync-dot.offline { background: #ef4444; }
+  .sync-dot.loading { background: #f59e0b; animation: pulse 1s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+  .nav { display: flex; align-items: center; gap: 8px; }
+  .nav button {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; cursor: pointer; font-size: 14px; color: var(--text);
+  }
+  .nav button:hover { background: #e9edf5; }
+  .nav .today-btn { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .nav .today-btn:hover { background: var(--accent-dark); }
+  .nav .week-label { font-weight: 600; min-width: 190px; text-align: center; }
+  main { padding: 20px 24px; }
+  .grid-wrap { overflow: auto; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); max-height: calc(100vh - 120px); }
+  table { border-collapse: collapse; width: 100%; table-layout: fixed; min-width: 900px; }
+  thead th {
+    position: sticky; top: 0; background: #fafbfe; z-index: 10;
+    padding: 10px 6px; border: 1px solid var(--border); font-size: 12px;
+    text-transform: uppercase; letter-spacing: .4px; color: var(--muted);
+  }
+  thead th .dow { display: block; font-size: 14px; font-weight: 700; color: var(--text); text-transform: none; }
+  thead th.today, td.col-today { background: #eef2ff; }
+  td.hour {
+    width: 64px; text-align: center; font-size: 12px; color: var(--muted);
+    background: #fafbfe; position: sticky; left: 0; z-index: 5;
+    border: 1px solid var(--border); padding: 4px;
+    user-select: none;
+  }
+  td.hour strong { display: block; font-size: 13px; color: var(--text); }
+  td.slot {
+    border: 1px solid var(--border); padding: 2px; vertical-align: top; height: 52px; cursor: pointer;
+    transition: background .12s;
+  }
+  td.slot:hover { background: #f1f5f9; }
+  td.slot.empty { color: var(--muted); }
+  .module {
+    border-radius: 8px; padding: 4px 6px; font-size: 12px; color: #fff;
+    cursor: pointer; height: 100%; display: flex; flex-direction: column; gap: 1px;
+    overflow: hidden; border-left: 4px solid rgba(0,0,0,.18);
+  }
+  .module .m-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .module .m-meta { display: flex; align-items: center; gap: 4px; font-size: 11px; opacity: .95; white-space: nowrap; overflow: hidden; }
+  .module .m-meta svg { flex-shrink: 0; }
+  .module .m-meta span { overflow: hidden; text-overflow: ellipsis; }
+  .module .m-time { font-size: 10.5px; opacity: .85; font-weight: 600; }
+  .module .m-note { font-size: 10.5px; opacity: .9; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .module.sleep {
+    border: 2px dashed rgba(255, 255, 255, .6);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .06);
+  }
+  td.slot.sleep-cell { border: 2px dashed #a5b4fc; }
+  .overlay {
+    position: fixed; inset: 0; background: rgba(15, 23, 42, .45);
+    display: flex; align-items: center; justify-content: center; z-index: 100; padding: 16px;
+  }
+  .overlay.hidden { display: none; }
+  .modal {
+    background: var(--panel); border-radius: var(--radius); box-shadow: 0 20px 60px rgba(0,0,0,.2);
+    width: 100%; max-width: 480px; max-height: 90vh; overflow: auto;
+  }
+  .modal-head {
+    padding: 18px 22px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .modal-head h2 { font-size: 18px; }
+  .modal-head .close { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--muted); line-height: 1; }
+  .modal-head .close:hover { color: var(--text); }
+  .modal-body { padding: 18px 22px; display: flex; flex-direction: column; gap: 14px; }
+  .modal-body .col-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .field label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+  .field input, .field select, .field textarea {
+    width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: 14px; font-family: inherit; background: #fff; color: var(--text);
+  }
+  .field textarea { resize: vertical; min-height: 84px; }
+  .field input:focus, .field select:focus, .field textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .color-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .color-dot {
+    width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+    border: 2px solid transparent; transition: transform .1s;
+  }
+  .color-dot:hover { transform: scale(1.1); }
+  .color-dot.selected { border-color: var(--text); }
+  .modal-foot {
+    padding: 14px 22px; border-top: 1px solid var(--border);
+    display: flex; justify-content: space-between; gap: 10px;
+  }
+  .modal-foot .right { display: flex; gap: 10px; }
+  .btn {
+    padding: 9px 16px; border-radius: 8px; border: none; cursor: pointer;
+    font-size: 14px; font-weight: 600; font-family: inherit;
+  }
+  .btn:disabled { opacity: .6; cursor: default; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-dark); }
+  .btn-ghost { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+  .btn-ghost:hover { background: #e9edf5; }
+  .btn-danger { background: #fee2e2; color: var(--danger); }
+  .btn-danger:hover { background: #fecaca; }
+  .btn-block { width: 100%; }
+  .empty-state { text-align: center; color: var(--muted); padding: 40px; font-size: 14px; }
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #0f172a; color: #fff; padding: 10px 18px; border-radius: 8px;
+    font-size: 14px; opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 200;
+  }
+  .toast.show { opacity: 1; }
+  .legend { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; font-size: 12px; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+  .screen {
+    position: fixed; inset: 0; background: linear-gradient(135deg, #eef2ff, #f4f6fb);
+    display: flex; align-items: center; justify-content: center; z-index: 150; padding: 16px;
+  }
+  .screen.hidden { display: none; }
+  .screen .card {
+    background: var(--panel); border-radius: var(--radius); box-shadow: 0 20px 60px rgba(0,0,0,.15);
+    width: 100%; max-width: 400px; padding: 32px; display: flex; flex-direction: column; gap: 14px;
+  }
+  .screen .card h2 { text-align: center; font-size: 24px; letter-spacing: -.5px; }
+  .screen .card h2 span { color: var(--accent); }
+  .screen .card .subtitle { text-align: center; color: var(--muted); font-size: 13px; margin-bottom: 4px; }
+  .auth-error { color: var(--danger); font-size: 13px; min-height: 18px; }
+  .link-btn { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 13px; }
+  .link-btn:hover { text-decoration: underline; }
+  .sep { border: none; border-top: 1px solid var(--border); }
+  .status-line { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .day-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .day-chip {
+    width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--bg); cursor: pointer; font-size: 13px; font-weight: 700; color: var(--text);
+    display: inline-flex; align-items: center; justify-content: center; transition: background .1s;
+  }
+  .day-chip:hover { background: #e9edf5; }
+  .day-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Mi <span>Horario</span></h1>
+  <div class="conn">
+    <span class="sync-dot" id="syncDot" title="Estado de sincronización"></span>
+    <button class="icon-btn" id="sleepBtn" title="Mostrar/ocultar sueño">&#127769;</button>
+    <button class="icon-btn" id="syncBtn" title="Sincronizar ahora">&#x21bb;</button>
+    <button class="icon-btn" id="settingsBtn" title="Configuración">&#9881;</button>
+    <span class="user-label" id="userLabel"></span>
+  </div>
+  <div class="nav">
+    <button id="prevWeek" title="Semana anterior">&#8249;</button>
+    <span class="week-label" id="weekLabel"></span>
+    <button id="nextWeek" title="Semana siguiente">&#8250;</button>
+    <button class="today-btn" id="todayBtn">Hoy</button>
+  </div>
+</header>
+
+<main>
+  <div class="grid-wrap" id="gridWrap">
+    <table id="scheduleTable">
+      <thead id="tableHead"></thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+  <div class="legend">
+    <span><i style="background:#fca5a5"></i> Sin ubicación</span>
+    <span><i style="background:#fbbf24"></i> Sin notas</span>
+    <span><i style="background:#94a3b8"></i> Fija (se repite cada semana)</span>
+    <span><i style="background:#312e81"></i> Sueño (oculto, actívalo con la luna)</span>
+    <span>Haz clic en cualquier casilla para añadir una actividad.</span>
+  </div>
+</main>
+
+<div class="overlay hidden" id="modalOverlay">
+  <div class="modal" id="modal">
+    <div class="modal-head">
+      <h2 id="modalTitle">Nueva actividad</h2>
+      <button class="close" id="modalClose" title="Cerrar">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="fTitle">Nombre de la actividad</label>
+        <input type="text" id="fTitle" placeholder="Ej. Matemáticas, Gym, Reunión...">
+      </div>
+      <div class="field">
+        <label for="fType">Tipo</label>
+        <select id="fType">
+          <option value="once">Solo esta semana</option>
+          <option value="weekly">Fija: se repite cada semana</option>
+          <option value="sleep">Sueño: una sola rutina diaria</option>
+        </select>
+        <p class="hint" id="typeHint"></p>
+      </div>
+      <div class="col-row">
+        <div class="field" id="fDayWrap">
+          <label for="fDay">Día</label>
+          <select id="fDay"></select>
+        </div>
+        <div class="field">
+          <label for="fColor">Color</label>
+          <div class="color-row" id="fColor"></div>
+        </div>
+      </div>
+      <div class="field" id="fDaysWrap">
+        <label>Días de la semana</label>
+        <div class="day-chips" id="fDays"></div>
+      </div>
+      <div class="col-row">
+        <div class="field">
+          <label for="fStart">Inicio (hora)</label>
+          <select id="fStart"></select>
+        </div>
+        <div class="field">
+          <label for="fEnd">Fin (hora)</label>
+          <select id="fEnd"></select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="fPlace">Lugar</label>
+        <input type="text" id="fPlace" placeholder="Ej. Salón 203, Cafetería...">
+      </div>
+      <div class="field">
+        <label for="fNotes">Notas</label>
+        <textarea id="fNotes" placeholder="Apuntes, materiales, recordatorios..."></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-danger hidden" id="btnDelete">Eliminar</button>
+      <div class="right">
+        <button class="btn btn-ghost" id="btnCancel">Cancelar</button>
+        <button class="btn btn-primary" id="btnSave">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="settingsOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Configuración</h2>
+      <button class="close" id="settingsClose" title="Cerrar">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="status-line">
+        <span class="sync-dot" id="settingsDot"></span>
+        <span id="settingsStatus">Desconectado</span>
+      </div>
+      <p class="subtitle" style="text-align:left;font-size:12px;color:var(--muted)" id="settingsConn"></p>
+      <button class="btn btn-ghost btn-block" id="cfgSync">Sincronizar ahora</button>
+      <hr class="sep">
+      <button class="btn btn-danger btn-block" id="cfgLogout">Cerrar sesión</button>
+    </div>
+  </div>
+</div>
+
+<div class="screen hidden" id="authScreen">
+  <div class="card">
+    <h2>Mi <span>Horario</span></h2>
+    <p class="subtitle">Inicia sesión para ver tu horario en todos tus dispositivos.</p>
+    <div class="field">
+      <label for="authEmail">Correo</label>
+      <input type="email" id="authEmail" placeholder="tu@correo.com" autocomplete="email">
+    </div>
+    <div class="field">
+      <label for="authPassword">Contraseña</label>
+      <input type="password" id="authPassword" placeholder="Mínimo 6 caracteres" autocomplete="current-password">
+    </div>
+    <div class="auth-error" id="authError"></div>
+    <button class="btn btn-primary btn-block" id="authSubmit">Iniciar sesión</button>
+    <button class="link-btn" id="authToggle">¿No tienes cuenta? Crear cuenta</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function () {
+  "use strict";
+
+  // ===== CONFIGURACIÓN DE SUPABASE =====
+  // Pega aquí tu URL del proyecto y tu clave anónima (anon public key).
+  // En Supabase: Settings > API > Project URL y anon public key.
+  var SUPABASE_URL = "https://qadbhuhvxohvtdiquchp.supabase.co";
+  var SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhZGJodWh2eG9odnRkaXF1Y2hwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwMTgwOTUsImV4cCI6MjEwMzU5NDA5NX0.hUqJIulvaZSzTVbNjYPG1uOQnvpwBhALleNJGlqRhUQ";
+  // ======================================
+
+  var DAYS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+  var HOURS = [];
+  for (var h = 0; h < 24; h++) HOURS.push(h);
+
+  var COLORS = [
+    "#6366f1", "#8b5cf6", "#ec4899", "#ef4444", "#f97316",
+    "#f59e0b", "#10b981", "#14b8a6", "#06b6d4", "#3b82f6"
+  ];
+
+  var state = {
+    weekStart: startOfWeek(new Date()),
+    modules: load(),
+    showSleep: localStorage.getItem("mihorario.showSleep") === "1"
+  };
+
+  var overlay = document.getElementById("modalOverlay");
+  var editingId = null;
+  var prefillDay = 0;
+
+  var supabase = null;
+  var currentSession = null;
+
+  var daySel = document.getElementById("fDay");
+  DAYS.forEach(function (d, i) {
+    var opt = document.createElement("option");
+    opt.value = i;
+    opt.textContent = d;
+    daySel.appendChild(opt);
+  });
+
+  var startSel = document.getElementById("fStart");
+  var endSel = document.getElementById("fEnd");
+  HOURS.forEach(function (h) {
+    var o1 = document.createElement("option");
+    o1.value = h;
+    o1.textContent = formatHour(h);
+    startSel.appendChild(o1);
+    var o2 = document.createElement("option");
+    o2.value = h + 1;
+    o2.textContent = formatHour(h + 1);
+    endSel.appendChild(o2);
+  });
+
+  var colorRow = document.getElementById("fColor");
+  var selectedColor = COLORS[0];
+  COLORS.forEach(function (c) {
+    var dot = document.createElement("button");
+    dot.type = "button";
+    dot.className = "color-dot" + (c === selectedColor ? " selected" : "");
+    dot.style.background = c;
+    dot.title = c;
+    dot.addEventListener("click", function () {
+      selectedColor = c;
+      Array.prototype.forEach.call(colorRow.children, function (el) { el.classList.remove("selected"); });
+      dot.classList.add("selected");
+    });
+    colorRow.appendChild(dot);
+  });
+
+  var toastTimer = null;
+  function toast(msg) {
+    var el = document.getElementById("toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove("show"); }, 2200);
+  }
+
+  var typeSel = document.getElementById("fType");
+  var fDayWrap = document.getElementById("fDayWrap");
+  var fDaysWrap = document.getElementById("fDaysWrap");
+  var typeHint = document.getElementById("typeHint");
+  function updateTypeUI() {
+    var t = typeSel.value;
+    fDayWrap.style.display = t === "once" ? "" : "none";
+    fDaysWrap.style.display = t === "weekly" ? "" : "none";
+    if (t === "sleep") typeHint.textContent = "Se aplica a todos los días. Solo puede existir un horario de sueño.";
+    else if (t === "weekly") typeHint.textContent = "Elige uno o varios días en los que se repite cada semana.";
+    else typeHint.textContent = "Solo aparece en la semana actual.";
+  }
+  typeSel.addEventListener("change", updateTypeUI);
+
+  var daysSel = document.getElementById("fDays");
+  var DAYS_ABBR = ["L", "M", "X", "J", "V", "S", "D"];
+  var selectedDays = [];
+  DAYS.forEach(function (d, i) {
+    var chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "day-chip";
+    chip.textContent = DAYS_ABBR[i];
+    chip.title = d;
+    chip.addEventListener("click", function () {
+      var idx = selectedDays.indexOf(i);
+      if (idx === -1) selectedDays.push(i);
+      else selectedDays.splice(idx, 1);
+      selectedDays.sort(function (a, b) { return a - b; });
+      renderChips();
+    });
+    daysSel.appendChild(chip);
+  });
+  function renderChips() {
+    Array.prototype.forEach.call(daysSel.children, function (chip, i) {
+      chip.classList.toggle("active", selectedDays.indexOf(i) !== -1);
+    });
+  }
+
+  function load() {
+    try { return JSON.parse(localStorage.getItem("mihorario.modules")) || []; }
+    catch (e) { return []; }
+  }
+  function persist() {
+    localStorage.setItem("mihorario.modules", JSON.stringify(state.modules));
+  }
+
+  function setSyncState(status) {
+    var dot = document.getElementById("syncDot");
+    var sdot = document.getElementById("settingsDot");
+    var stext = document.getElementById("settingsStatus");
+    dot.className = "sync-dot" + (status === "none" ? "" : " " + status);
+    sdot.className = "sync-dot" + (status === "none" ? "" : " " + status);
+    var labels = { none: "Sin conexión configurada", online: "Sincronizado con la nube", offline: "Sin conexión a internet", loading: "Sincronizando..." };
+    stext.textContent = labels[status] || "Sin conexión";
+  }
+
+  function startOfWeek(d) {
+    var x = new Date(d);
+    x.setHours(0, 0, 0, 0);
+    var dow = (x.getDay() + 6) % 7;
+    x.setDate(x.getDate() - dow);
+    return x;
+  }
+  function addDays(d, n) {
+    var x = new Date(d);
+    x.setDate(x.getDate() + n);
+    return x;
+  }
+  function formatDate(d) {
+    return d.getDate() + " " + ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"][d.getMonth()];
+  }
+  function formatHour(h) {
+    var hh = h % 24;
+    var label = hh === 0 ? "12 AM" : hh < 12 ? hh + " AM" : hh === 12 ? "12 PM" : (hh - 12) + " PM";
+    return label + " (" + String(hh).padStart(2, "0") + ":00)";
+  }
+  function pad(n) { return n < 10 ? "0" + n : "" + n; }
+
+  function coversHour(m, dateStr, dayIndex, hour) {
+    var wraps = m.end <= m.start;
+    if (m.type === "once") {
+      if (m.date === dateStr) return wraps ? hour >= m.start : (hour >= m.start && hour < m.end);
+      if (wraps) {
+        var nextDate = dateStr(addDays(parseDate(m.date), 1));
+        if (dateStr === nextDate) return hour < m.end;
+      }
+      return false;
+    }
+    if (m.day === -1) {
+      return wraps ? (hour >= m.start || hour < m.end) : (hour >= m.start && hour < m.end);
+    }
+    var daysArr = (m.days && m.days.length) ? m.days : [m.day];
+    if (daysArr.indexOf(dayIndex) !== -1) return wraps ? hour >= m.start : (hour >= m.start && hour < m.end);
+    if (wraps && daysArr.indexOf((dayIndex + 6) % 7) !== -1) return hour < m.end;
+    return false;
+  }
+
+  function modulesForDay(dateStr, dayIndex, hour) {
+    return state.modules.filter(function (m) {
+      if (m.type === "sleep" && !state.showSleep) return false;
+      return coversHour(m, dateStr, dayIndex, hour);
+    });
+  }
+
+  function parseDate(s) {
+    var p = s.split("-").map(Number);
+    return new Date(p[0], p[1] - 1, p[2]);
+  }
+
+  function sleepCoveredHours() {
+    var covered = {};
+    state.modules.forEach(function (m) {
+      if (m.type !== "sleep" || m.day !== -1) return;
+      var wraps = m.end <= m.start;
+      if (wraps) {
+        for (var h1 = m.start; h1 < 24; h1++) covered[h1] = true;
+        for (var h2 = 0; h2 < m.end; h2++) covered[h2] = true;
+      } else {
+        for (var h3 = m.start; h3 < m.end; h3++) covered[h3] = true;
+      }
+    });
+    return covered;
+  }
+
+  function render() {
+    var thead = document.getElementById("tableHead");
+    var tbody = document.getElementById("tableBody");
+    var todayStr = dateStr(new Date());
+    thead.innerHTML = "";
+    tbody.innerHTML = "";
+
+    var headRow = document.createElement("tr");
+    var th = document.createElement("th");
+    th.textContent = "Hora";
+    th.className = "hour";
+    headRow.appendChild(th);
+    for (var d = 0; d < 7; d++) {
+      var date = addDays(state.weekStart, d);
+      var ds = dateStr(date);
+      var th2 = document.createElement("th");
+      if (ds === todayStr) th2.classList.add("today");
+      th2.innerHTML = '<span class="dow">' + DAYS[d] + "</span>" + formatDate(date);
+      headRow.appendChild(th2);
+    }
+    thead.appendChild(headRow);
+
+    var covered = state.showSleep ? {} : sleepCoveredHours();
+    var displayHours = HOURS.filter(function (h) { return !covered[h]; });
+    if (!displayHours.length) displayHours = HOURS.slice();
+
+    for (var ri = 0; ri < displayHours.length; ri++) {
+      var h = displayHours[ri];
+      var tr = document.createElement("tr");
+      var thh = document.createElement("td");
+      thh.className = "hour";
+      thh.innerHTML = "<strong>" + pad(h) + ":00</strong>";
+      tr.appendChild(thh);
+      for (var d2 = 0; d2 < 7; d2++) {
+        var date2 = addDays(state.weekStart, d2);
+        var ds2 = dateStr(date2);
+        var td = document.createElement("td");
+        td.className = "slot";
+        if (ds2 === todayStr) td.classList.add("col-today");
+        var mods = modulesForDay(ds2, d2, h);
+        if (mods.length === 0) {
+          td.classList.add("empty");
+          td.title = DAYS[d2] + " " + pad(h) + ":00";
+          td.addEventListener("click", (function (day, hr) {
+            return function () { openNew(day, hr); };
+          })(d2, h));
+        } else {
+          var mod = mods[0];
+          if (h === mod.start) {
+            var div = document.createElement("div");
+            div.className = "module" + (mod.type === "sleep" ? " sleep" : "");
+            div.style.background = mod.color;
+            var note = mod.notes ? '<div class="m-note">📝 ' + escapeHtml(mod.notes) + "</div>" : "";
+            var prefix = mod.type === "sleep" ? "&#127769; " : mod.type === "weekly" ? "&#8635; " : "";
+            div.innerHTML =
+              '<div class="m-title">' + prefix + escapeHtml(mod.title) + "</div>" +
+              '<div class="m-time">' + pad(mod.start) + ":00 – " + pad(mod.end) + ":00" + (mod.end <= mod.start ? " (día sig.)" : "") + "</div>" +
+              '<div class="m-meta"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span>' +
+                (mod.place ? escapeHtml(mod.place) : "Sin ubicación") + "</span></div>" + note;
+            div.addEventListener("click", function (m) {
+              return function () { openEdit(m.id); };
+            }(mod));
+            td.appendChild(div);
+          } else {
+            td.style.backgroundColor = mod.color;
+            td.style.opacity = "0.35";
+            if (mod.type === "sleep") td.classList.add("sleep-cell");
+          }
+        }
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    }
+
+    var label = document.getElementById("weekLabel");
+    label.textContent = formatDate(state.weekStart) + " – " + formatDate(addDays(state.weekStart, 6));
+  }
+
+  function escapeHtml(s) {
+    var div = document.createElement("div");
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
+  function dateStr(d) {
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  }
+
+  function openNew(day, hour) {
+    editingId = null;
+    prefillDay = day;
+    document.getElementById("modalTitle").textContent = "Nueva actividad";
+    document.getElementById("fTitle").value = "";
+    document.getElementById("fType").value = "once";
+    updateTypeUI();
+    selectedDays = [day];
+    renderChips();
+    document.getElementById("fPlace").value = "";
+    document.getElementById("fNotes").value = "";
+    daySel.value = day;
+    startSel.value = hour;
+    endSel.value = hour + 1;
+    selectedColor = COLORS[day % COLORS.length];
+    Array.prototype.forEach.call(colorRow.children, function (el, i) {
+      el.classList.toggle("selected", COLORS[i] === selectedColor);
+    });
+    document.getElementById("btnDelete").classList.add("hidden");
+    overlay.classList.remove("hidden");
+    document.getElementById("fTitle").focus();
+  }
+
+  function openEdit(id) {
+    var mod = state.modules.find(function (m) { return m.id === id; });
+    if (!mod) return;
+    editingId = id;
+    document.getElementById("modalTitle").textContent = "Editar actividad";
+    document.getElementById("fTitle").value = mod.title;
+    document.getElementById("fType").value = mod.type || "once";
+    updateTypeUI();
+    if (mod.type === "weekly") selectedDays = (mod.days && mod.days.length) ? mod.days.slice() : [mod.day];
+    else selectedDays = [];
+    renderChips();
+    document.getElementById("fPlace").value = mod.place || "";
+    document.getElementById("fNotes").value = mod.notes || "";
+    daySel.value = mod.day;
+    startSel.value = mod.start;
+    endSel.value = mod.end;
+    selectedColor = mod.color;
+    Array.prototype.forEach.call(colorRow.children, function (el, i) {
+      el.classList.toggle("selected", COLORS[i] === selectedColor);
+    });
+    document.getElementById("btnDelete").classList.remove("hidden");
+    overlay.classList.remove("hidden");
+    document.getElementById("fTitle").focus();
+  }
+
+  function closeModal() { overlay.classList.add("hidden"); }
+
+  function toRow(m) {
+    return {
+      id: m.id, title: m.title, place: m.place || "", notes: m.notes || "",
+      day: m.day, days: (m.days && m.days.length) ? m.days.join(",") : "",
+      date: m.date, start_hour: m.start, end_hour: m.end, color: m.color,
+      type: m.type || "once",
+      updated_at: new Date().toISOString()
+    };
+  }
+  function fromRow(r) {
+    return {
+      id: r.id, title: r.title, place: r.place || "", notes: r.notes || "",
+      day: r.day, days: r.days ? r.days.split(",").filter(Boolean).map(Number) : [],
+      date: r.date, start: r.start_hour, end: r.end_hour, color: r.color,
+      type: r.type || "once"
+    };
+  }
+
+  function save() {
+    var title = document.getElementById("fTitle").value.trim();
+    if (!title) { toast("El nombre es obligatorio"); return; }
+    var type = document.getElementById("fType").value;
+    var start = parseInt(startSel.value, 10);
+    var end = parseInt(endSel.value, 10);
+    if (end === start) { toast("El fin debe ser distinto del inicio"); return; }
+    var day;
+    var daysArr = [];
+    if (type === "once") day = parseInt(daySel.value, 10);
+    else if (type === "weekly") {
+      daysArr = selectedDays.slice();
+      if (!daysArr.length) { toast("Elige al menos un día de la semana"); return; }
+      day = daysArr[0];
+    } else day = -1;
+    var date = dateStr(addDays(state.weekStart, day < 0 ? 0 : day));
+    var mod = {
+      id: editingId,
+      type: type,
+      title: title,
+      place: document.getElementById("fPlace").value.trim(),
+      notes: document.getElementById("fNotes").value.trim(),
+      day: day,
+      days: type === "weekly" ? daysArr : [],
+      date: date,
+      start: start,
+      end: end,
+      color: selectedColor
+    };
+    if (editingId !== null) {
+      var idx = state.modules.findIndex(function (m) { return m.id === editingId; });
+      if (idx > -1) state.modules[idx] = mod;
+    } else {
+      mod.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      state.modules.push(mod);
+    }
+    if (mod.type === "sleep") {
+      var otherSleep = state.modules.filter(function (m) { return m.type === "sleep" && m.id !== mod.id; });
+      state.modules = state.modules.filter(function (m) { return m.type !== "sleep" || m.id === mod.id; });
+      if (supabase && currentSession) {
+        otherSleep.forEach(function (m) {
+          supabase.from("modules").delete().eq("id", m.id).then(function (res) {
+            if (res.error) setSyncState("offline");
+            else setSyncState("online");
+          });
+        });
+      }
+    }
+    state.modules.sort(function (a, b) {
+      if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+      return a.start - b.start;
+    });
+    persist();
+    closeModal();
+    render();
+
+    if (supabase && currentSession) {
+      supabase.from("modules").upsert(toRow(mod)).then(function (res) {
+        if (res.error) { setSyncState("offline"); toast("Guardado localmente. Sin conexión."); }
+        else setSyncState("online");
+      });
+      toast("Actividad guardada");
+    } else {
+      toast("Actividad guardada (solo este dispositivo)");
+    }
+  }
+
+  function removeModule() {
+    if (editingId === null) return;
+    var id = editingId;
+    state.modules = state.modules.filter(function (m) { return m.id !== id; });
+    persist();
+    closeModal();
+    render();
+    toast("Actividad eliminada");
+    if (supabase && currentSession) {
+      supabase.from("modules").delete().eq("id", id).then(function (res) {
+        if (res.error) setSyncState("offline");
+        else setSyncState("online");
+      });
+    }
+  }
+
+  async function syncFromServer() {
+    if (!supabase || !currentSession) return;
+    setSyncState("loading");
+    try {
+      var res = await supabase.from("modules").select("*");
+      if (res.error) throw res.error;
+      var remote = (res.data || []).map(fromRow);
+      var remoteIds = {};
+      remote.forEach(function (m) { remoteIds[m.id] = true; });
+      var orphans = state.modules.filter(function (m) { return !remoteIds[m.id]; });
+      if (orphans.length) {
+        var up = await supabase.from("modules").upsert(orphans.map(toRow));
+        if (up.error) throw up.error;
+        remote = remote.concat(orphans);
+        toast("Sincronizado: se subieron " + orphans.length + " actividad(es) guardadas localmente");
+      } else {
+        toast("Sincronizado");
+      }
+      state.modules = remote;
+      persist();
+      render();
+      setSyncState("online");
+    } catch (e) {
+      state.modules = load();
+      render();
+      setSyncState("offline");
+      toast("Sin conexión: mostrando datos guardados");
+    }
+  }
+
+  document.getElementById("modalClose").addEventListener("click", closeModal);
+  document.getElementById("btnCancel").addEventListener("click", closeModal);
+  document.getElementById("btnSave").addEventListener("click", save);
+  document.getElementById("btnDelete").addEventListener("click", removeModule);
+  overlay.addEventListener("click", function (e) { if (e.target === overlay) closeModal(); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") {
+      closeModal();
+      document.getElementById("settingsOverlay").classList.add("hidden");
+    }
+  });
+
+  document.getElementById("prevWeek").addEventListener("click", function () {
+    state.weekStart = addDays(state.weekStart, -7);
+    render();
+  });
+  document.getElementById("nextWeek").addEventListener("click", function () {
+    state.weekStart = addDays(state.weekStart, 7);
+    render();
+  });
+  document.getElementById("todayBtn").addEventListener("click", function () {
+    state.weekStart = startOfWeek(new Date());
+    render();
+  });
+
+  var authScreen = document.getElementById("authScreen");
+  var authMode = "login";
+
+  function showAuthScreen() {
+    authScreen.classList.remove("hidden");
+  }
+  function hideScreens() {
+    authScreen.classList.add("hidden");
+  }
+
+  function initSupabase() {
+    var configured = SUPABASE_URL && SUPABASE_ANON_KEY &&
+      SUPABASE_URL.indexOf("TU-PROYECTO") === -1 &&
+      SUPABASE_ANON_KEY.indexOf("TU_CLAVE") === -1;
+    if (!configured || !window.supabase) {
+      setSyncState("none");
+      document.getElementById("authError").textContent =
+        "Antes de empezar, completa SUPABASE_URL y SUPABASE_ANON_KEY al inicio del script en index.html.";
+      showAuthScreen();
+      return null;
+    }
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: true, autoRefreshToken: true }
+    });
+    supabase.auth.onAuthStateChange(function (event, session) {
+      currentSession = session;
+      if (session) {
+        hideScreens();
+        var email = (session.user && session.user.email) || "";
+        document.getElementById("userLabel").textContent = email;
+        document.getElementById("settingsStatus").textContent = "Conectado como " + email;
+        syncFromServer();
+      } else {
+        document.getElementById("userLabel").textContent = "";
+        showAuthScreen();
+      }
+    });
+    return supabase;
+  }
+
+  document.getElementById("authToggle").addEventListener("click", function () {
+    authMode = authMode === "login" ? "signup" : "login";
+    document.getElementById("authSubmit").textContent = authMode === "login" ? "Iniciar sesión" : "Crear cuenta";
+    document.getElementById("authToggle").textContent = authMode === "login" ? "¿No tienes cuenta? Crear cuenta" : "¿Ya tienes cuenta? Iniciar sesión";
+    document.getElementById("authError").textContent = "";
+  });
+
+  async function handleAuth() {
+    var email = document.getElementById("authEmail").value.trim();
+    var password = document.getElementById("authPassword").value;
+    var errEl = document.getElementById("authError");
+    if (!email || !password) { errEl.textContent = "Ingresa correo y contraseña."; return; }
+    if (password.length < 6) { errEl.textContent = "La contraseña debe tener al menos 6 caracteres."; return; }
+    errEl.textContent = "";
+    var btn = document.getElementById("authSubmit");
+    btn.disabled = true;
+    try {
+      if (authMode === "signup") {
+        var up = await supabase.auth.signUp({ email: email, password: password });
+        if (up.error) { errEl.textContent = up.error.message; }
+        else if (!up.data.session) {
+          errEl.textContent = "Cuenta creada. Revisa tu correo para confirmarla y luego inicia sesión.";
+          authMode = "login";
+          document.getElementById("authSubmit").textContent = "Iniciar sesión";
+          document.getElementById("authToggle").textContent = "¿No tienes cuenta? Crear cuenta";
+        }
+      } else {
+        var si = await supabase.auth.signInWithPassword({ email: email, password: password });
+        if (si.error) { errEl.textContent = si.error.message; }
+      }
+    } catch (e) {
+      errEl.textContent = "Error de conexión con el servidor.";
+    }
+    btn.disabled = false;
+  }
+
+  document.getElementById("authSubmit").addEventListener("click", handleAuth);
+  document.getElementById("authPassword").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") handleAuth();
+  });
+
+  var settingsOverlay = document.getElementById("settingsOverlay");
+  document.getElementById("settingsBtn").addEventListener("click", function () {
+    document.getElementById("settingsConn").textContent = "Proyecto: " + SUPABASE_URL;
+    settingsOverlay.classList.remove("hidden");
+  });
+  document.getElementById("settingsClose").addEventListener("click", function () {
+    settingsOverlay.classList.add("hidden");
+  });
+  settingsOverlay.addEventListener("click", function (e) {
+    if (e.target === settingsOverlay) settingsOverlay.classList.add("hidden");
+  });
+  document.getElementById("cfgSync").addEventListener("click", function () {
+    settingsOverlay.classList.add("hidden");
+    syncFromServer();
+  });
+  document.getElementById("cfgLogout").addEventListener("click", function () {
+    if (supabase) {
+      supabase.auth.signOut().then(function () {
+        settingsOverlay.classList.add("hidden");
+        state.modules = [];
+        persist();
+        render();
+      });
+    }
+  });
+
+  document.getElementById("syncBtn").addEventListener("click", function () {
+    if (supabase && currentSession) syncFromServer();
+    else toast("Inicia sesión para sincronizar");
+  });
+
+  var sleepBtn = document.getElementById("sleepBtn");
+  function updateSleepBtn() {
+    sleepBtn.classList.toggle("active", state.showSleep);
+    sleepBtn.title = state.showSleep ? "Ocultar el sueño" : "Mostrar el sueño";
+  }
+  sleepBtn.addEventListener("click", function () {
+    state.showSleep = !state.showSleep;
+    localStorage.setItem("mihorario.showSleep", state.showSleep ? "1" : "0");
+    updateSleepBtn();
+    render();
+  });
+  updateSleepBtn();
+
+  render();
+  initSupabase();
+  if (supabase && !currentSession) showAuthScreen();
+})();
+</script>
+</body>
+</html>
