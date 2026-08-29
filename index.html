@@ -572,7 +572,7 @@
     th.textContent = "Hora";
     th.className = "hour";
     headRow.appendChild(th);
-    var dayList = isMobile() ? [state.dayOffset, state.dayOffset + 1] : [0, 1, 2, 3, 4, 5, 6];
+    var dayList = isMobile() ? [state.dayOffset, Math.min(state.dayOffset + 1, 6)] : [0, 1, 2, 3, 4, 5, 6];
     for (var d = 0; d < dayList.length; d++) {
       var di = dayList[d];
       var date = addDays(state.weekStart, di);
