@@ -506,6 +506,13 @@
   }
   function pad(n) { return n < 10 ? "0" + n : "" + n; }
   function normDay(n) { return ((n % 7) + 7) % 7; }
+  function daysToShow() {
+    var w = window.innerWidth;
+    if (w >= 1024) return 7;
+    if (w >= 768) return 5;
+    if (w >= 480) return 3;
+    return 2;
+  }
 
   function coversHour(m, dateStr, dayIndex, hour) {
     var wraps = m.end <= m.start;
@@ -565,7 +572,9 @@
     th.textContent = "Hora";
     th.className = "hour";
     headRow.appendChild(th);
-    var dayList = [state.dayOffset, state.dayOffset + 1];
+    var dayCount = daysToShow();
+    var dayList = [];
+    for (var dn = 0; dn < dayCount; dn++) dayList.push(state.dayOffset + dn);
     for (var d = 0; d < dayList.length; d++) {
       var di = dayList[d];
       var date = addDays(state.weekStart, di);
@@ -631,7 +640,7 @@
     }
 
     var label = document.getElementById("weekLabel");
-    label.textContent = formatDate(addDays(state.weekStart, dayList[0])) + " – " + formatDate(addDays(state.weekStart, dayList[1]));
+    label.textContent = formatDate(addDays(state.weekStart, dayList[0])) + " – " + formatDate(addDays(state.weekStart, dayList[dayList.length - 1]));
   }
 
   function escapeHtml(s) {
