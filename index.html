@@ -355,8 +355,8 @@
     <h2>Mi <span>Horario</span></h2>
     <p class="subtitle">Inicia sesión para ver tu horario en todos tus dispositivos.</p>
     <div class="field">
-      <label for="authEmail">Correo</label>
-      <input type="email" id="authEmail" placeholder="tu@correo.com" autocomplete="email">
+      <label for="authUsername">Nombre de usuario</label>
+      <input type="text" id="authUsername" placeholder="elige un usuario" autocomplete="username" autocapitalize="off" spellcheck="false">
     </div>
     <div class="field">
       <label for="authPassword">Contraseña</label>
@@ -924,8 +924,9 @@
       if (session) {
         hideScreens();
         var email = (session.user && session.user.email) || "";
-        document.getElementById("userLabel").textContent = email;
-        document.getElementById("settingsStatus").textContent = "Conectado como " + email;
+        var displayUser = email.split("@")[0] || email;
+        document.getElementById("userLabel").textContent = displayUser;
+        document.getElementById("settingsStatus").textContent = "Conectado como " + displayUser;
         syncFromServer();
       } else {
         document.getElementById("userLabel").textContent = "";
@@ -943,31 +944,36 @@
   });
 
   async function handleAuth() {
-    var email = document.getElementById("authEmail").value.trim();
+    var username = document.getElementById("authUsername").value.trim().toLowerCase();
     var password = document.getElementById("authPassword").value;
     var errEl = document.getElementById("authError");
-    if (!email || !password) { errEl.textContent = "Ingresa correo y contraseña."; return; }
+    if (!username || !password) { errEl.textContent = "Ingresa usuario y contraseña."; return; }
+    if (!/^[a-z0-9_]{3,24}$/.test(username)) {
+      errEl.textContent = "El usuario debe tener de 3 a 24 caracteres (letras, números o guion bajo).";
+      return;
+    }
     if (password.length < 6) { errEl.textContent = "La contraseña debe tener al menos 6 caracteres."; return; }
     errEl.textContent = "";
+    var email = username + "@mihorario.app";
     var btn = document.getElementById("authSubmit");
     btn.disabled = true;
     try {
       if (authMode === "signup") {
-        var up = await supabase.auth.signUp({
-          email: email,
-          password: password,
-          options: { emailRedirectTo: window.location.origin }
-        });
-        if (up.error) { errEl.textContent = up.error.message; }
-        else if (!up.data.session) {
-          errEl.textContent = "Cuenta creada. Revisa tu correo para confirmarla y luego inicia sesión.";
-          authMode = "login";
-          document.getElementById("authSubmit").textContent = "Iniciar sesión";
-          document.getElementById("authToggle").textContent = "¿No tienes cuenta? Crear cuenta";
+        var up = await supabase.auth.signUp({ email: email, password: password });
+        if (up.error) {
+          errEl.textContent = /already/i.test(up.error.message)
+            ? "Ese nombre de usuario ya está en uso."
+            : up.error.message;
+        } else if (!up.data.session) {
+          errEl.textContent = "Revisa que tengas desactivado 'Confirm email' en Supabase para entrar sin confirmación.";
         }
       } else {
         var si = await supabase.auth.signInWithPassword({ email: email, password: password });
-        if (si.error) { errEl.textContent = si.error.message; }
+        if (si.error) {
+          errEl.textContent = /invalid login credentials/i.test(si.error.message)
+            ? "Usuario o contraseña incorrectos."
+            : si.error.message;
+        }
       }
     } catch (e) {
       errEl.textContent = "Error de conexión con el servidor.";
