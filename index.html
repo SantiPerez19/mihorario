@@ -953,7 +953,11 @@
     btn.disabled = true;
     try {
       if (authMode === "signup") {
-        var up = await supabase.auth.signUp({ email: email, password: password });
+        var up = await supabase.auth.signUp({
+          email: email,
+          password: password,
+          options: { emailRedirectTo: window.location.origin }
+        });
         if (up.error) { errEl.textContent = up.error.message; }
         else if (!up.data.session) {
           errEl.textContent = "Cuenta creada. Revisa tu correo para confirmarla y luego inicia sesión.";
