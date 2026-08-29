@@ -342,6 +342,9 @@
     <div class="auth-error" id="authError"></div>
     <button class="btn btn-primary btn-block" id="authSubmit">Iniciar sesión</button>
     <button class="link-btn" id="authToggle">¿No tienes cuenta? Crear cuenta</button>
+    <hr class="sep">
+    <button class="btn btn-ghost btn-block" id="guestBtn">Entrar sin cuenta (invitado)</button>
+    <p class="hint">El modo invitado guarda tu horario solo en este dispositivo.</p>
   </div>
 </div>
 
@@ -944,6 +947,16 @@
   }
 
   document.getElementById("authSubmit").addEventListener("click", handleAuth);
+  document.getElementById("guestBtn").addEventListener("click", function () {
+    if (!supabase) return;
+    document.getElementById("authError").textContent = "";
+    supabase.auth.signInAnonymously().then(function (res) {
+      if (res.error) {
+        document.getElementById("authError").textContent =
+          "Activa los inicios de sesión anónimos en Supabase: Authentication > Sign In / Providers > Anonymous.";
+      }
+    });
+  });
   document.getElementById("authPassword").addEventListener("keydown", function (e) {
     if (e.key === "Enter") handleAuth();
   });
