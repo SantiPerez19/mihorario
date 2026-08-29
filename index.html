@@ -184,6 +184,32 @@
   }
   .day-chip:hover { background: #e9edf5; }
   .day-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .day-nav { display: none; }
+  @media (max-width: 640px) {
+    header { padding: 10px 12px; gap: 8px 10px; }
+    header h1 { font-size: 17px; }
+    .conn { margin-left: 0; gap: 8px; }
+    .conn .user-label { display: none; }
+    .nav { width: 100%; justify-content: space-between; gap: 6px; }
+    .nav .week-label { min-width: 0; flex: 1; font-size: 13px; }
+    .nav .today-btn { padding: 8px 10px; }
+    .day-nav { display: inline-flex; }
+    main { padding: 10px 12px; }
+    .grid-wrap { max-height: calc(100vh - 160px); }
+    table { min-width: 0; }
+    td.hour { width: 50px; font-size: 11px; }
+    td.slot { height: 46px; }
+    .module { font-size: 11px; padding: 3px 5px; }
+    .module .m-time { display: none; }
+    .legend { font-size: 11px; margin-top: 10px; gap: 8px; }
+    .modal-head { padding: 14px 16px; }
+    .modal-body { padding: 14px 16px; }
+    .modal-foot { padding: 12px 16px; }
+    .modal-body .col-row { grid-template-columns: 1fr; }
+    .field input, .field select, .field textarea { font-size: 16px; }
+    .color-dot { width: 34px; height: 34px; }
+  }
 </style>
 </head>
 <body>
@@ -199,7 +225,9 @@
   </div>
   <div class="nav">
     <button id="prevWeek" title="Semana anterior">&#8249;</button>
+    <button id="dayPrev" class="day-nav" title="Días anteriores">&#8592;</button>
     <span class="week-label" id="weekLabel"></span>
+    <button id="dayNext" class="day-nav" title="Días siguientes">&#8594;</button>
     <button id="nextWeek" title="Semana siguiente">&#8250;</button>
     <button class="today-btn" id="todayBtn">Hoy</button>
   </div>
@@ -346,6 +374,7 @@
 
   var state = {
     weekStart: startOfWeek(new Date()),
+    dayOffset: 0,
     modules: load(),
     showSleep: localStorage.getItem("mihorario.showSleep") === "1"
   };
@@ -481,6 +510,10 @@
   }
   function pad(n) { return n < 10 ? "0" + n : "" + n; }
 
+  function isMobile() {
+    return window.matchMedia("(max-width: 640px)").matches;
+  }
+
   function coversHour(m, dateStr, dayIndex, hour) {
     var wraps = m.end <= m.start;
     if (m.type === "once") {
@@ -539,12 +572,14 @@
     th.textContent = "Hora";
     th.className = "hour";
     headRow.appendChild(th);
-    for (var d = 0; d < 7; d++) {
-      var date = addDays(state.weekStart, d);
+    var dayList = isMobile() ? [state.dayOffset, state.dayOffset + 1] : [0, 1, 2, 3, 4, 5, 6];
+    for (var d = 0; d < dayList.length; d++) {
+      var di = dayList[d];
+      var date = addDays(state.weekStart, di);
       var ds = dateStr(date);
       var th2 = document.createElement("th");
       if (ds === todayStr) th2.classList.add("today");
-      th2.innerHTML = '<span class="dow">' + DAYS[d] + "</span>" + formatDate(date);
+      th2.innerHTML = '<span class="dow">' + DAYS[di] + "</span>" + formatDate(date);
       headRow.appendChild(th2);
     }
     thead.appendChild(headRow);
@@ -560,19 +595,20 @@
       thh.className = "hour";
       thh.innerHTML = "<strong>" + pad(h) + ":00</strong>";
       tr.appendChild(thh);
-      for (var d2 = 0; d2 < 7; d2++) {
-        var date2 = addDays(state.weekStart, d2);
+      for (var d2 = 0; d2 < dayList.length; d2++) {
+        var di2 = dayList[d2];
+        var date2 = addDays(state.weekStart, di2);
         var ds2 = dateStr(date2);
         var td = document.createElement("td");
         td.className = "slot";
         if (ds2 === todayStr) td.classList.add("col-today");
-        var mods = modulesForDay(ds2, d2, h);
+        var mods = modulesForDay(ds2, di2, h);
         if (mods.length === 0) {
           td.classList.add("empty");
-          td.title = DAYS[d2] + " " + pad(h) + ":00";
+          td.title = DAYS[di2] + " " + pad(h) + ":00";
           td.addEventListener("click", (function (day, hr) {
             return function () { openNew(day, hr); };
-          })(d2, h));
+          })(di2, h));
         } else {
           var mod = mods[0];
           if (h === mod.start) {
@@ -602,7 +638,16 @@
     }
 
     var label = document.getElementById("weekLabel");
-    label.textContent = formatDate(state.weekStart) + " – " + formatDate(addDays(state.weekStart, 6));
+    if (isMobile()) {
+      var lastIdx = Math.min(state.dayOffset + 1, 6);
+      var firstD = addDays(state.weekStart, state.dayOffset);
+      var lastD = addDays(state.weekStart, lastIdx);
+      label.textContent = state.dayOffset === lastIdx
+        ? formatDate(firstD)
+        : formatDate(firstD) + " – " + formatDate(lastD);
+    } else {
+      label.textContent = formatDate(state.weekStart) + " – " + formatDate(addDays(state.weekStart, 6));
+    }
   }
 
   function escapeHtml(s) {
@@ -818,7 +863,23 @@
   });
   document.getElementById("todayBtn").addEventListener("click", function () {
     state.weekStart = startOfWeek(new Date());
+    state.dayOffset = Math.floor(((new Date().getDay() + 6) % 7) / 2) * 2;
     render();
+  });
+
+  document.getElementById("dayPrev").addEventListener("click", function () {
+    state.dayOffset = Math.max(0, state.dayOffset - 2);
+    render();
+  });
+  document.getElementById("dayNext").addEventListener("click", function () {
+    state.dayOffset = Math.min(6, state.dayOffset + 2);
+    render();
+  });
+
+  var resizeTimer = null;
+  window.addEventListener("resize", function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(render, 150);
   });
 
   var authScreen = document.getElementById("authScreen");
