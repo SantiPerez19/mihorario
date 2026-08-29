@@ -17,6 +17,40 @@
     --radius: 12px;
     --shadow: 0 1px 3px rgba(15, 23, 42, .08), 0 1px 2px rgba(15, 23, 42, .06);
   }
+  [data-theme="dark"] {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --border: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #818cf8;
+    --accent-dark: #6366f1;
+    --danger: #f87171;
+    --shadow: 0 1px 3px rgba(0, 0, 0, .45), 0 1px 2px rgba(0, 0, 0, .35);
+  }
+  .icon-sun { display: block; }
+  .icon-moon { display: none; }
+  [data-theme="dark"] .icon-sun { display: none; }
+  [data-theme="dark"] .icon-moon { display: block; }
+  [data-theme="dark"] .icon-btn:hover,
+  [data-theme="dark"] .nav button:hover,
+  [data-theme="dark"] .btn-ghost:hover,
+  [data-theme="dark"] .day-chip:hover { background: #28354d; }
+  [data-theme="dark"] thead th,
+  [data-theme="dark"] td.hour { background: #1a2332; }
+  [data-theme="dark"] thead th.today,
+  [data-theme="dark"] td.col-today { background: rgba(99, 102, 241, .18); }
+  [data-theme="dark"] td.slot:hover { background: #243046; }
+  [data-theme="dark"] .btn-danger { background: rgba(248, 113, 113, .15); color: var(--danger); }
+  [data-theme="dark"] .btn-danger:hover { background: rgba(248, 113, 113, .25); }
+  [data-theme="dark"] .field input,
+  [data-theme="dark"] .field select,
+  [data-theme="dark"] .field textarea { background: #0f172a; color: var(--text); }
+  [data-theme="dark"] .field input:focus, [data-theme="dark"] .field select:focus, [data-theme="dark"] .field textarea:focus { outline-color: var(--accent); }
+  [data-theme="dark"] .toast { background: #334155; box-shadow: 0 8px 24px rgba(0, 0, 0, .45); }
+  [data-theme="dark"] .module.sleep { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14); }
+  [data-theme="dark"] .screen .card { background: rgba(255, 255, 255, .97); }
+  [data-theme="dark"] .screen .card .field input { background: #fff; color: var(--text); }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -268,6 +302,10 @@
     <button class="icon-btn" id="exportBtn" title="Exportar como imagen">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
     </button>
+    <button class="icon-btn" id="themeBtn" title="Cambiar tema">
+      <svg class="icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+      <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
     <button class="icon-btn" id="settingsBtn" title="Configuración">&#9881;</button>
     <span class="user-label" id="userLabel"></span>
   </div>
@@ -452,6 +490,14 @@
     modules: load(),
     showSleep: localStorage.getItem("mihorario.showSleep") === "1"
   };
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("mihorario.theme", theme);
+  }
+  var savedTheme = localStorage.getItem("mihorario.theme");
+  var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  applyTheme(savedTheme || (prefersDark ? "dark" : "light"));
 
   var overlay = document.getElementById("modalOverlay");
   var editingId = null;
@@ -1125,6 +1171,12 @@
   document.getElementById("syncBtn").addEventListener("click", function () {
     if (supabase && currentSession) syncFromServer();
     else toast("Inicia sesión para sincronizar");
+  });
+
+  var themeBtn = document.getElementById("themeBtn");
+  themeBtn.addEventListener("click", function () {
+    var current = document.documentElement.getAttribute("data-theme") || "light";
+    applyTheme(current === "dark" ? "light" : "dark");
   });
 
   var sleepBtn = document.getElementById("sleepBtn");
