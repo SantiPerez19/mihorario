@@ -208,6 +208,7 @@
     .field input, .field select, .field textarea { font-size: 16px; }
     .color-dot { width: 34px; height: 34px; }
   }
+  .export-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 </style>
 </head>
 <body>
@@ -218,6 +219,9 @@
     <span class="sync-dot" id="syncDot" title="Estado de sincronización"></span>
     <button class="icon-btn" id="sleepBtn" title="Mostrar/ocultar sueño">&#127769;</button>
     <button class="icon-btn" id="syncBtn" title="Sincronizar ahora">&#x21bb;</button>
+    <button class="icon-btn" id="exportBtn" title="Exportar como imagen">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+    </button>
     <button class="icon-btn" id="settingsBtn" title="Configuración">&#9881;</button>
     <span class="user-label" id="userLabel"></span>
   </div>
@@ -327,6 +331,25 @@
   </div>
 </div>
 
+<div class="overlay hidden" id="exportOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Exportar imagen</h2>
+      <button class="close" id="exportClose" title="Cerrar">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="hint">Elige cuántos días quieres incluir en la imagen (desde la posición actual).</p>
+      <div class="export-opts">
+        <button class="btn btn-ghost" data-days="1">1 día</button>
+        <button class="btn btn-ghost" data-days="3">3 días</button>
+        <button class="btn btn-ghost" data-days="5">5 días</button>
+        <button class="btn btn-ghost" data-days="7">7 días</button>
+      </div>
+      <p class="hint">Se generará un archivo PNG con todo el horario completo.</p>
+    </div>
+  </div>
+</div>
+
 <div class="screen hidden" id="authScreen">
   <div class="card">
     <h2>Mi <span>Horario</span></h2>
@@ -351,6 +374,7 @@
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script>
 (function () {
   "use strict";
@@ -563,7 +587,7 @@
     return covered;
   }
 
-  function render() {
+  function render(daysOverride) {
     var thead = document.getElementById("tableHead");
     var tbody = document.getElementById("tableBody");
     var todayStr = dateStr(new Date());
@@ -575,7 +599,7 @@
     th.textContent = "Hora";
     th.className = "hour";
     headRow.appendChild(th);
-    var dayCount = daysToShow();
+    var dayCount = daysOverride || daysToShow();
     var dayList = [];
     for (var dn = 0; dn < dayCount; dn++) dayList.push(state.dayOffset + dn);
     for (var d = 0; d < dayList.length; d++) {
@@ -846,6 +870,7 @@
     if (e.key === "Escape") {
       closeModal();
       document.getElementById("settingsOverlay").classList.add("hidden");
+      document.getElementById("exportOverlay").classList.add("hidden");
     }
   });
 
@@ -965,6 +990,50 @@
   document.getElementById("settingsBtn").addEventListener("click", function () {
     document.getElementById("settingsConn").textContent = "Proyecto: " + SUPABASE_URL;
     settingsOverlay.classList.remove("hidden");
+  });
+
+  var exportOverlay = document.getElementById("exportOverlay");
+  function exportImage(days) {
+    if (!window.html2canvas) { toast("No se pudo cargar la librería de imágenes"); return; }
+    var wrap = document.getElementById("gridWrap");
+    render(days);
+    var prevMax = wrap.style.maxHeight;
+    var prevOverflow = wrap.style.overflow;
+    wrap.style.maxHeight = "none";
+    wrap.style.overflow = "visible";
+    toast("Generando imagen...");
+    setTimeout(function () {
+      html2canvas(wrap, { backgroundColor: "#ffffff", scale: 2, useCORS: true }).then(function (canvas) {
+        var link = document.createElement("a");
+        link.download = "mi-horario-" + days + "-dias.png";
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+        wrap.style.maxHeight = prevMax;
+        wrap.style.overflow = prevOverflow;
+        render();
+        toast("Imagen exportada");
+      }).catch(function () {
+        wrap.style.maxHeight = prevMax;
+        wrap.style.overflow = prevOverflow;
+        render();
+        toast("No se pudo generar la imagen");
+      });
+    }, 80);
+  }
+  document.getElementById("exportBtn").addEventListener("click", function () {
+    exportOverlay.classList.remove("hidden");
+  });
+  document.getElementById("exportClose").addEventListener("click", function () {
+    exportOverlay.classList.add("hidden");
+  });
+  exportOverlay.addEventListener("click", function (e) {
+    if (e.target === exportOverlay) exportOverlay.classList.add("hidden");
+  });
+  exportOverlay.querySelectorAll("[data-days]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      exportOverlay.classList.add("hidden");
+      exportImage(parseInt(btn.getAttribute("data-days"), 10));
+    });
   });
   document.getElementById("settingsClose").addEventListener("click", function () {
     settingsOverlay.classList.add("hidden");
