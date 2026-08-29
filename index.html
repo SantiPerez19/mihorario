@@ -209,6 +209,11 @@
     .color-dot { width: 34px; height: 34px; }
   }
   .export-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  body.exporting .grid-wrap { max-height: none; overflow: visible; }
+  body.exporting td.hour { width: 64px; font-size: 12px; }
+  body.exporting td.slot { height: 52px; }
+  body.exporting .module { font-size: 12px; padding: 4px 6px; }
+  body.exporting .module .m-time { display: block; }
 </style>
 </head>
 <body>
@@ -1007,24 +1012,29 @@
     if (!window.html2canvas) { toast("No se pudo cargar la librería de imágenes"); return; }
     var wrap = document.getElementById("gridWrap");
     render(days);
-    var prevMax = wrap.style.maxHeight;
-    var prevOverflow = wrap.style.overflow;
-    wrap.style.maxHeight = "none";
-    wrap.style.overflow = "visible";
+    var prevWidth = wrap.style.width;
+    document.body.classList.add("exporting");
+    wrap.style.width = (64 + days * 150) + "px";
     toast("Generando imagen...");
     setTimeout(function () {
-      html2canvas(wrap, { backgroundColor: "#ffffff", scale: 2, useCORS: true }).then(function (canvas) {
+      html2canvas(wrap, {
+        backgroundColor: "#ffffff",
+        scale: 2,
+        useCORS: true,
+        windowWidth: wrap.scrollWidth,
+        width: wrap.scrollWidth
+      }).then(function (canvas) {
         var link = document.createElement("a");
         link.download = "mi-horario-" + days + "-dias.png";
         link.href = canvas.toDataURL("image/png");
         link.click();
-        wrap.style.maxHeight = prevMax;
-        wrap.style.overflow = prevOverflow;
+        wrap.style.width = prevWidth;
+        document.body.classList.remove("exporting");
         render();
         toast("Imagen exportada");
       }).catch(function () {
-        wrap.style.maxHeight = prevMax;
-        wrap.style.overflow = prevOverflow;
+        wrap.style.width = prevWidth;
+        document.body.classList.remove("exporting");
         render();
         toast("No se pudo generar la imagen");
       });
