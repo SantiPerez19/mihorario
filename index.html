@@ -374,7 +374,7 @@
 
   var state = {
     weekStart: startOfWeek(new Date()),
-    dayOffset: 0,
+    dayOffset: (new Date().getDay() + 6) % 7,
     modules: load(),
     showSleep: localStorage.getItem("mihorario.showSleep") === "1"
   };
@@ -572,7 +572,7 @@
     th.textContent = "Hora";
     th.className = "hour";
     headRow.appendChild(th);
-    var dayList = isMobile() ? [state.dayOffset, state.dayOffset + 1] : [0, 1, 2, 3, 4, 5, 6];
+    var dayList = isMobile() ? [state.dayOffset] : [0, 1, 2, 3, 4, 5, 6];
     for (var d = 0; d < dayList.length; d++) {
       var di = dayList[d];
       var date = addDays(state.weekStart, di);
@@ -639,7 +639,7 @@
 
     var label = document.getElementById("weekLabel");
     if (isMobile()) {
-      label.textContent = formatDate(addDays(state.weekStart, dayList[0])) + " – " + formatDate(addDays(state.weekStart, dayList[1]));
+      label.textContent = formatDate(addDays(state.weekStart, dayList[0]));
     } else {
       label.textContent = formatDate(state.weekStart) + " – " + formatDate(addDays(state.weekStart, 6));
     }
@@ -858,16 +858,16 @@
   });
   document.getElementById("todayBtn").addEventListener("click", function () {
     state.weekStart = startOfWeek(new Date());
-    state.dayOffset = Math.floor(((new Date().getDay() + 6) % 7) / 2) * 2;
+    state.dayOffset = (new Date().getDay() + 6) % 7;
     render();
   });
 
   document.getElementById("dayPrev").addEventListener("click", function () {
-    state.dayOffset = Math.max(0, state.dayOffset - 2);
+    state.dayOffset = Math.max(0, state.dayOffset - 1);
     render();
   });
   document.getElementById("dayNext").addEventListener("click", function () {
-    state.dayOffset = Math.min(6, state.dayOffset + 2);
+    state.dayOffset = Math.min(6, state.dayOffset + 1);
     render();
   });
 
