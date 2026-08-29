@@ -572,14 +572,14 @@
     th.textContent = "Hora";
     th.className = "hour";
     headRow.appendChild(th);
-    var dayList = isMobile() ? [state.dayOffset, Math.min(state.dayOffset + 1, 6)] : [0, 1, 2, 3, 4, 5, 6];
+    var dayList = isMobile() ? [state.dayOffset, state.dayOffset + 1] : [0, 1, 2, 3, 4, 5, 6];
     for (var d = 0; d < dayList.length; d++) {
       var di = dayList[d];
       var date = addDays(state.weekStart, di);
       var ds = dateStr(date);
       var th2 = document.createElement("th");
       if (ds === todayStr) th2.classList.add("today");
-      th2.innerHTML = '<span class="dow">' + DAYS[di] + "</span>" + formatDate(date);
+      th2.innerHTML = '<span class="dow">' + DAYS[di % 7] + "</span>" + formatDate(date);
       headRow.appendChild(th2);
     }
     thead.appendChild(headRow);
@@ -602,10 +602,10 @@
         var td = document.createElement("td");
         td.className = "slot";
         if (ds2 === todayStr) td.classList.add("col-today");
-        var mods = modulesForDay(ds2, di2, h);
+        var mods = modulesForDay(ds2, di2 % 7, h);
         if (mods.length === 0) {
           td.classList.add("empty");
-          td.title = DAYS[di2] + " " + pad(h) + ":00";
+          td.title = DAYS[di2 % 7] + " " + pad(h) + ":00";
           td.addEventListener("click", (function (day, hr) {
             return function () { openNew(day, hr); };
           })(di2, h));
@@ -639,12 +639,7 @@
 
     var label = document.getElementById("weekLabel");
     if (isMobile()) {
-      var lastIdx = Math.min(state.dayOffset + 1, 6);
-      var firstD = addDays(state.weekStart, state.dayOffset);
-      var lastD = addDays(state.weekStart, lastIdx);
-      label.textContent = state.dayOffset === lastIdx
-        ? formatDate(firstD)
-        : formatDate(firstD) + " – " + formatDate(lastD);
+      label.textContent = formatDate(addDays(state.weekStart, dayList[0])) + " – " + formatDate(addDays(state.weekStart, dayList[1]));
     } else {
       label.textContent = formatDate(state.weekStart) + " – " + formatDate(addDays(state.weekStart, 6));
     }
